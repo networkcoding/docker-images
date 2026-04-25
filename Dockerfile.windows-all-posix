@@ -1,0 +1,59 @@
+FROM docker.m.daocloud.io/debian:bookworm
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TARGET_TUPLE=x86_64-w64-mingw32
+ENV WINEDEBUG=-all
+
+RUN cp /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak && \
+     sed -i 's|http://deb.debian.org/debian|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources && \
+     sed -i 's|http://security.debian.org/debian-security|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources
+
+# Lean toolchain for C/C++ cross-builds (Linux -> Windows x64) + Wine runtime
+# for Windows executables used in build/package stages.
+# Enable i386 to support WoW64/32-bit Windows executables.
+RUN dpkg --add-architecture i386 && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    cmake \
+    make \
+    ninja-build \
+    pkg-config \
+    git \
+    wget \
+    mingw-w64 \
+    gcc-mingw-w64-x86-64-posix \
+    g++-mingw-w64-x86-64-posix \
+    binutils-mingw-w64-x86-64 \
+    mingw-w64-tools \
+    wine \
+    wine64 \
+    wine32:i386 \
+    libwine \
+    libwine:i386 \
+    libwine-dev \
+    cabextract \
+    unzip \
+    p7zip-full \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY scripts/wait_process.sh /opt/wine/
+
+# Install winetricks (useful when packaging tools require extra Windows runtime).
+RUN set -eux; wget -q https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks \
+    -O /usr/local/bin/winetricks \
+    && chmod +x /usr/local/bin/winetricks \
+    && chmod +x /opt/wine/wait_process.sh \
+    && winetricks --version
+
+ENV LANG=en_US.UTF-8
+
+# Pre-initialize Wine prefix for non-interactive CI usage.
+RUN set -eux; wine wineboot --init && \
+    /opt/wine/wait_process.sh wineserver && \
+    rm -rf ~/.cache/winetricks && \
+    rm -rf /tmp/.wine-*
+
+USER root
+WORKDIR /builds
+
+CMD ["bash"]
+

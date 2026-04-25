@@ -1,0 +1,25 @@
+FROM docker.m.daocloud.io/debian:bookworm
+ARG DEBIAN_FRONTEND=noninteractive
+
+# replace the source list
+RUN cp /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak && \
+     sed -i 's|http://deb.debian.org/debian|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources && \
+     sed -i 's|http://security.debian.org/debian-security|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources
+RUN set -eux; cat /etc/apt/sources.list.d/debian.sources
+
+RUN set -eux; apt-get update && apt-get upgrade --yes && apt-get install --yes cmake git lsb-release curl wget software-properties-common gnupg python3
+
+# Clang 18
+COPY scripts/llvm.sh /usr/local/sbin/
+RUN set -eux; chmod +x /usr/local/sbin/llvm.sh
+RUN set -eux; /usr/local/sbin/llvm.sh 18 all -m https://mirrors.tuna.tsinghua.edu.cn/llvm-apt
+
+# soft link clang to clang-18
+RUN set -eux; update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100 && \
+    update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-18 100 && \
+    update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
+
+RUN set -eux; clang --version
+RUN set -eux; clang-tidy --version
+RUN set -eux; clang-format --version

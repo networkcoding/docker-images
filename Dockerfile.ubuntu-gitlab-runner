@@ -1,0 +1,13 @@
+FROM docker.m.daocloud.io/ubuntu:22.04
+ARG DEBIAN_FRONTEND=noninteractive
+
+# replace the source list
+RUN cp /etc/apt/sources.list /etc/apt/sources.list.bak && \
+    sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list && \
+    sed -i 's|http://security.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list
+
+RUN apt-get update && apt-get upgrade --yes
+
+RUN apt-get install --yes libatomic1 curl cmake build-essential git
+RUN curl --location --output /usr/bin/release-cli "https://gitlab.com/api/v4/projects/gitlab-org%2Frelease-cli/packages/generic/release-cli/latest/release-cli-linux-amd64"
+RUN chmod +x /usr/bin/release-cli

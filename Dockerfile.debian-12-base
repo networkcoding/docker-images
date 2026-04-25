@@ -1,0 +1,18 @@
+FROM docker.m.daocloud.io/debian:bookworm
+ARG DEBIAN_FRONTEND=noninteractive
+
+# replace the source list
+RUN cp /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak && \
+     sed -i 's|http://deb.debian.org/debian|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources && \
+     sed -i 's|http://security.debian.org/debian-security|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources
+RUN set -eux; cat /etc/apt/sources.list.d/debian.sources
+
+RUN set -eux; apt-get update && apt-get upgrade --yes
+RUN set -eux; apt-get install --yes net-tools libatomic1 curl gdb cmake build-essential git
+RUN set -eux; apt-get install --yes gcc-aarch64-linux-gnu g++-aarch64-linux-gnu gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
+
+RUN set -eux; aarch64-linux-gnu-gcc --version
+RUN set -eux; SYSROOT="$(aarch64-linux-gnu-gcc -print-sysroot)" && \
+    echo "sysroot=$SYSROOT";printf '#include <features.h>\n' \
+  | aarch64-linux-gnu-gcc --sysroot="$SYSROOT" -E -dM -x c - \
+  | grep -E '__GLIBC__|__GLIBC_MINOR__'
