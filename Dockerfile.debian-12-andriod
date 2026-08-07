@@ -8,17 +8,7 @@ RUN cp /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sou
 RUN set -eux; cat /etc/apt/sources.list.d/debian.sources
 
 RUN set -eux; apt-get update && apt-get upgrade --yes
-RUN set -eux; apt-get install --yes net-tools libatomic1 curl gdb cmake build-essential git
-RUN set -eux; apt-get install --yes gcc-aarch64-linux-gnu g++-aarch64-linux-gnu gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
-
-RUN set -eux; aarch64-linux-gnu-gcc --version
-RUN set -eux; SYSROOT="$(aarch64-linux-gnu-gcc -print-sysroot)" && \
-    echo "sysroot=$SYSROOT";printf '#include <features.h>\n' \
-  | aarch64-linux-gnu-gcc --sysroot="$SYSROOT" -E -dM -x c - \
-  | grep -E '__GLIBC__|__GLIBC_MINOR__'
-
-RUN curl --location --output /usr/bin/release-cli "https://gitlab.com/api/v4/projects/gitlab-org%2Frelease-cli/packages/generic/release-cli/latest/release-cli-linux-amd64"
-RUN chmod +x /usr/bin/release-cli
+RUN set -eux; apt-get install --yes curl gdb cmake build-essential git
 
 # install gcovr 8.2.tar.gz
 COPY 8.2.tar.gz /tmp/
@@ -30,3 +20,24 @@ RUN set -eux; /opt/venv/bin/pip install PyYAML
 COPY sccache /usr/bin/sccache
 RUN chmod +x /usr/bin/sccache
 RUN sccache --version
+
+# install gradlew to /root/gradle-8.10.2-bin/
+ENV GRADLE_DIR="/root/gradle-8.10.2-bin/"
+RUN mkdir -p "$GRADLE_DIR"
+RUN curl -fL --retry 3 -C - \
+  https://mirrors.cloud.tencent.com/gradle/gradle-8.10.2-bin.zip \
+  -o "$GRADLE_DIR/gradle-8.10.2-bin.zip.part"
+RUN set -eux; apt-get install --yes unzip
+RUN unzip -q "$GRADLE_DIR/gradle-8.10.2-bin.zip.part" -d "$GRADLE_DIR" && \
+  rm -f "$GRADLE_DIR/gradle-8.10.2-bin.zip.part"
+ENV PATH="${GRADLE_DIR}/gradle-8.10.2/bin:${PATH}"
+
+# install Andriod SDK
+COPY scripts/install.sh /tmp/install.sh
+RUN set -eux; chmod +x /tmp/install.sh && /tmp/install.sh
+
+ENV ANDROID_HOME="/root/android-sdk" \
+    ANDROID_SDK_ROOT="/root/android-sdk" \
+    ANDROID_NDK_HOME="/root/android-sdk/ndk/24.0.8215888"
+
+ENV PATH="/opt/venv/bin:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/emulator:${ANDROID_NDK_HOME}:${PATH}"
