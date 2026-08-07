@@ -1,0 +1,6 @@
+server_startup_timeout_ms = 10000
+basedirs = []
+
+[cache.disk]
+dir = "/var/cache/sccache/"
+size = 12240000000

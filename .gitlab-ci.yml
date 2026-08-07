@@ -16,6 +16,8 @@ variables:
   SCCACHE_CONF: "/etc/sccache/sccache.toml"
   SCCACHE_DIR: "/var/cache/sccache/"
   SCCACHE_BASEDIRS: "$CI_PROJECT_DIR"
+# gitlab runner volumes
+# volumes = ["/etc/sccache/sccache.toml:/etc/sccache/sccache.toml:ro","/var/cache/sccache/:/var/cache/sccache/:rw","/cache"]
 
 ## ============================================================================================
 workflow:
