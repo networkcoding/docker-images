@@ -1,0 +1,82 @@
+include:
+  - local: ".gitlab-release.yml"
+## ============================================================================================
+stages:
+  - build
+  - release
+
+default:
+  # All jobs are interruptible by default
+  interruptible: true
+
+## ============================================================================================
+variables:
+  PIPELINE_NAME: "Default pipeline name"
+  GIT_DEPTH: 3
+  SCCACHE_CONF: "/etc/sccache/sccache.toml"
+  SCCACHE_DIR: "/var/cache/sccache/"
+  SCCACHE_BASEDIRS: "$CI_PROJECT_DIR"
+
+## ============================================================================================
+workflow:
+  name: "$PIPELINE_NAME"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG =~ /^\d+\.\d+\.\d+\.\d+$/'
+      variables:
+        PIPELINE_NAME: "Release tag pipeline"
+    - when: never
+
+## ============================================================================================
+.build-test:rules:
+  rules:
+    - if: "$CI_COMMIT_TAG =~ /^v/"
+      when: on_success
+    - when: never
+
+.default-retry:
+  retry:
+    max: 1
+    when:
+      - api_failure
+      - runner_system_failure
+      - stuck_or_timeout_failure
+      - unknown_failure
+
+## --------------------------------------------------------------------------------------------
+build_amd64:
+  extends:
+    - .build-test:rules
+    - .default-retry
+  stage: build
+  image:
+    name: debian-12-base:latest
+    entrypoint: [""]
+  timeout: 5m
+  interruptible: true
+  tags:
+    - Linux
+  script:
+    - |
+      echo "=========== ${CI_PROJECT_DIR} =========== "
+      git submodule update --init --recursive --force --depth 1
+      cmake . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+      cmake --build build -j$(nproc)
+      sccache --show-stats
+
+build_android:
+  extends:
+    - .build-test:rules
+    - .default-retry
+  stage: build
+  image:
+    name: debian-12-base:latest
+    entrypoint: [""]
+  timeout: 5m
+  interruptible: true
+  tags:
+    - Linux
+  script:
+    - |
+      git submodule update --init --recursive --depth 1
+      gradle --version && gradle -p android :base:assembleRelease -Pall=true
+      sccache --show-stats
