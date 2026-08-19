@@ -1,0 +1,52 @@
+FROM docker.m.daocloud.io/debian:bookworm
+ARG DEBIAN_FRONTEND=noninteractive
+ARG CODEX_VERSION=latest
+
+ENV CI=true \
+    GIT_TERMINAL_PROMPT=0 \
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_AUDIT=false \
+    NPM_CONFIG_UPDATE_NOTIFIER=false
+
+# replace the source list
+RUN cp /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak && \
+     sed -i 's|http://deb.debian.org/debian|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources && \
+     sed -i 's|http://security.debian.org/debian-security|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources
+RUN set -eux; cat /etc/apt/sources.list.d/debian.sources
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get upgrade --yes; \
+    apt-get install --yes --no-install-recommends \
+        bash \
+        build-essential \
+        ca-certificates \
+        cmake \
+        curl \
+        diffutils \
+        file \
+        findutils \
+        gdb \
+        git \
+        git-lfs \
+        jq \
+        less \
+        libatomic1 \
+        net-tools \
+        nodejs \
+        npm \
+        openssh-client \
+        patch \
+        procps \
+        python3 \
+        ripgrep \
+        unzip \
+        xz-utils \
+        zip; \
+    rm -rf /var/lib/apt/lists/*
+
+# install OpenAI Codex CLI
+RUN set -eux; \
+    npm install --global "@openai/codex@${CODEX_VERSION}"; \
+    codex --version; \
+    npm cache clean --force
