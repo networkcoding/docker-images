@@ -1,0 +1,71 @@
+ARG BASE_IMAGE_PREFIX=docker.m.daocloud.io
+FROM ${BASE_IMAGE_PREFIX}/debian:bookworm
+ARG DEBIAN_FRONTEND=noninteractive
+
+# replace the source list
+RUN cp /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak && \
+     sed -i 's|http://deb.debian.org/debian|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources && \
+     sed -i 's|http://security.debian.org/debian-security|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources
+RUN set -eux; cat /etc/apt/sources.list.d/debian.sources
+
+RUN set -eux; apt-get update && apt-get upgrade --yes
+RUN set -eux; apt-get install --yes net-tools libatomic1 curl gdb cmake build-essential git nodejs npm unzip zip
+
+RUN curl --location --output /usr/bin/release-cli "https://gitlab.com/api/v4/projects/gitlab-org%2Frelease-cli/packages/generic/release-cli/latest/release-cli-linux-amd64"
+RUN chmod +x /usr/bin/release-cli
+
+# install gcovr 8.2.tar.gz
+COPY 8.2.tar.gz /tmp/
+RUN set -eux; apt-get update && apt-get upgrade --yes && apt-get install --yes python3-pip python3-venv samba-client
+RUN set -eux; python3 -m venv /opt/venv && /opt/venv/bin/pip install --upgrade pip && /opt/venv/bin/pip install /tmp/8.2.tar.gz
+RUN set -eux; /opt/venv/bin/pip install PyYAML
+
+# install HarmonyOS Command Line Tools (hvigorw, ohpm, HarmonyOS SDK and OpenHarmony native SDK)
+ARG HARMONY_COMMAND_LINE_TOOLS_SHA256=b9caf7b73c541b90e6c8f3c7c3de7f2bea9b35e41e80cd3525f2f759ebf16cf4
+ENV HARMONY_COMMAND_LINE_TOOLS_HOME=/opt/harmony-command-line-tools
+ENV HARMONY_HVIGOR=${HARMONY_COMMAND_LINE_TOOLS_HOME}/hvigor/bin/hvigorw
+ENV DEVECO_SDK_HOME=${HARMONY_COMMAND_LINE_TOOLS_HOME}/sdk
+ENV OHOS_SDK_ROOT=${DEVECO_SDK_HOME}/default/openharmony
+ENV NODE_HOME=/usr
+ENV NPM_CONFIG_USERCONFIG=/root/.npmrc
+ENV PATH="${HARMONY_COMMAND_LINE_TOOLS_HOME}/bin:${HARMONY_COMMAND_LINE_TOOLS_HOME}/hvigor/bin:${PATH}"
+COPY commandline-tools-linux-x64-6.1.1.280.zip /tmp/
+RUN set -eux; \
+    printf '%s\n' \
+        'registry=https://repo.huaweicloud.com/repository/npm/' \
+        '@ohos:registry=https://repo.harmonyos.com/npm/' \
+        > /root/.npmrc; \
+    chmod 0644 /root/.npmrc
+RUN set -eux; \
+    archive=/tmp/commandline-tools-linux-x64-6.1.1.280.zip; \
+    echo "${HARMONY_COMMAND_LINE_TOOLS_SHA256}  ${archive}" | sha256sum --check --status; \
+    unzip -q "${archive}" -d /opt; \
+    mv /opt/command-line-tools "${HARMONY_COMMAND_LINE_TOOLS_HOME}"; \
+    test -x "${HARMONY_HVIGOR}"; \
+    test -d "${DEVECO_SDK_HOME}"; \
+    test -d "${OHOS_SDK_ROOT}/native"; \
+    test -x "${OHOS_SDK_ROOT}/toolchains/hnpcli"; \
+    rm -f "${archive}"
+RUN set -eux; \
+    command -v node; \
+    node --version; \
+    command -v npm; \
+    command -v hvigorw; \
+    command -v ohpm; \
+    test -x "${HARMONY_HVIGOR}"; \
+    test -d "${DEVECO_SDK_HOME}"; \
+    test -d "${OHOS_SDK_ROOT}/native"; \
+    test -x "${OHOS_SDK_ROOT}/toolchains/hnpcli"; \
+    test -f "${DEVECO_SDK_HOME}/default/sdk-pkg.json"; \
+    test -f "${DEVECO_SDK_HOME}/default/hms/ets/uni-package.json"; \
+    test -f "${OHOS_SDK_ROOT}/native/oh-uni-package.json"; \
+    test -f "${OHOS_SDK_ROOT}/toolchains/oh-uni-package.json"
+
+# install sccache
+COPY sccache /usr/bin/sccache
+RUN chmod +x /usr/bin/sccache
+RUN sccache --version
+
+ENV PATH="/opt/venv/bin:${PATH}"
+RUN printf '%s\n' 'export PATH="/opt/venv/bin:${PATH}"' > /etc/profile.d/opt-venv.sh
+RUN set -eux; command -v python3; python3 -c "import yaml; print(yaml.__version__)"
