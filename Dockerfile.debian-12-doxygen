@@ -1,0 +1,42 @@
+FROM docker.m.daocloud.io/debian:bookworm
+ARG DEBIAN_FRONTEND=noninteractive
+ARG DOXYGEN_PACKAGE_VERSION=1.9.4-4
+ARG PLANTUML_PACKAGE_VERSION=1:1.2020.2+ds-3
+
+# replace the source list
+RUN cp /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak && \
+     sed -i 's|http://deb.debian.org/debian|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources && \
+     sed -i 's|http://security.debian.org/debian-security|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources
+RUN set -eux; cat /etc/apt/sources.list.d/debian.sources
+RUN set -eux; apt-get update && apt-get upgrade --yes
+ENV PLANTUML_JAR=/usr/share/plantuml/plantuml.jar \
+    GRAPHVIZ_DOT=/usr/bin/dot
+
+RUN apt-get install -y --no-install-recommends \
+        "doxygen=${DOXYGEN_PACKAGE_VERSION}" \
+        "plantuml=${PLANTUML_PACKAGE_VERSION}" \
+        graphviz \
+        default-jre-headless \
+        fonts-dejavu-core \
+        git \
+        curl \
+        openssh-client \
+        rsync \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Verify the renderers while building the image, without sending input to a server.
+RUN doxygen --version \
+    && java -version \
+    && dot -V \
+    && ssh -V \
+    && rsync --version \
+    && test -s "$PLANTUML_JAR" \
+    && printf '@startuml\nclass ApiDocsSmokeTest\n@enduml\n' \
+        | java -jar "$PLANTUML_JAR" -tsvg -pipe > /tmp/api-docs-smoke.svg \
+    && grep -q '<svg' /tmp/api-docs-smoke.svg \
+    && ! grep -Eq 'Syntax Error|An error has occurred|Dot executable does not exist|Cannot find Graphviz' /tmp/api-docs-smoke.svg \
+    && rm /tmp/api-docs-smoke.svg
+
+WORKDIR /workspace
+CMD ["/bin/bash"]
