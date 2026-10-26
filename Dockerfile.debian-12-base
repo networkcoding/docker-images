@@ -7,9 +7,20 @@ RUN cp /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sou
      sed -i 's|http://security.debian.org/debian-security|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources
 RUN set -eux; cat /etc/apt/sources.list.d/debian.sources
 
+RUN set -eux; dpkg --add-architecture arm64
 RUN set -eux; apt-get update && apt-get upgrade --yes
-RUN set -eux; apt-get install --yes net-tools libatomic1 curl gdb cmake build-essential git
-RUN set -eux; apt-get install --yes gcc-aarch64-linux-gnu g++-aarch64-linux-gnu gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
+RUN set -eux; apt-get install --yes net-tools libatomic1 curl gdb cmake build-essential git zip rsync
+RUN set -eux; apt-get install --yes gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+RUN set -eux; apt-get install --yes --no-install-recommends \
+      zlib1g:arm64 \
+      libbz2-1.0:arm64 \
+      liblzma5:arm64 \
+      liblz4-1:arm64 \
+      libzstd1:arm64 \
+      libssl3:arm64 \
+      libxml2:arm64 \
+      libacl1:arm64 \
+      libcap2:arm64
 
 RUN set -eux; aarch64-linux-gnu-gcc --version
 RUN set -eux; SYSROOT="$(aarch64-linux-gnu-gcc -print-sysroot)" && \
